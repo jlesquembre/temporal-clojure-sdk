@@ -6,36 +6,42 @@
             [temporal.client.worker :as worker]
             [temporal.client.options :as o]
             [temporal.internal.activity :as a]
-            [temporal.internal.workflow :as w]
+            [temporal.internal.child-workflow :as cw]
             [temporal.internal.schedule :as s]
-            [temporal.internal.child-workflow :as cw])
+            [temporal.internal.search-attributes :as sa]
+            [temporal.internal.workflow :as w])
   (:import [java.time Duration Instant]
            [io.temporal.shaded.io.grpc Grpc InsecureChannelCredentials Metadata]
            [io.temporal.shaded.io.grpc.netty.shaded.io.grpc.netty GrpcSslContexts]))
 
 (deftest workflow-options
   (testing "Verify that our workflow options work"
-    (let [x (w/wf-options-> {:workflow-id "foo"
-                             :task-queue "bar"
-                             :workflow-execution-timeout (Duration/ofSeconds 1)
-                             :workflow-run-timeout (Duration/ofSeconds 1)
-                             :workflow-task-timeout (Duration/ofSeconds 1)
-                             :retry-options {:maximum-attempts 1}
-                             :cron-schedule "* * * * *"
-                             :memo {"foo" "bar"}
-                             :search-attributes {"foo" "bar"}
-                             :priority {:priority-key 5
-                                        :fairness-key :premium
-                                        :fairness-weight 3.14}
-                             :static-summary "summary"
-                             :static-details "details"})]
-      (is (-> x (.getWorkflowId) (= "foo")))
-      (is (-> x (.getTaskQueue) (= "bar")))
-      (is (-> x (.getPriority) (.getPriorityKey) (= 5)))
-      (is (-> x (.getPriority) (.getFairnessKey) (= "premium")))
-      (is (ish? (-> x (.getPriority) (.getFairnessWeight)) 3.14))
-      (is (= "summary" (-> x (.getStaticSummary))))
-      (is (= "details" (-> x (.getStaticDetails)))))))
+    (let [base {:workflow-id "foo"
+                :task-queue "bar"
+                :workflow-execution-timeout (Duration/ofSeconds 1)
+                :workflow-run-timeout (Duration/ofSeconds 1)
+                :workflow-task-timeout (Duration/ofSeconds 1)
+                :retry-options {:maximum-attempts 1}
+                :cron-schedule "* * * * *"
+                :memo {"foo" "bar"}
+                :priority {:priority-key 5
+                           :fairness-key :premium
+                           :fairness-weight 3.14}
+                :static-summary "summary"
+                :static-details "details"}
+          simple (w/wf-options-> (assoc base :search-attributes {"foo" "bar"}))
+          typed (w/wf-options-> (assoc base :search-attributes {"foo" {:type :keyword :value "bar"}}))]
+      (is (-> simple (.getWorkflowId) (= "foo")))
+      (is (-> simple (.getTaskQueue) (= "bar")))
+      (is (-> simple (.getPriority) (.getPriorityKey) (= 5)))
+      (is (-> simple (.getPriority) (.getFairnessKey) (= "premium")))
+      (is (ish? (-> simple (.getPriority) (.getFairnessWeight)) 3.14))
+      (is (= "summary" (-> simple (.getStaticSummary))))
+      (is (= "details" (-> simple (.getStaticDetails))))
+      (is (= "bar"
+             (-> simple .getTypedSearchAttributes sa/search-attributes->map (get "foo") :value)))
+      (is (= {"foo" {:type :keyword :value "bar"}}
+             (-> typed .getTypedSearchAttributes sa/search-attributes->map))))))
 
 (deftest client-options
   (testing "Verify that our stub options work"
@@ -137,10 +143,18 @@
           state {:paused? true
                  :note "note"
                  :limited-action? false}
+          schedule-options-typed {:memo {"source" "types-test"}
+                                  :search-attributes {"foo" {:type :keyword :value "bar"}}
+                                  :trigger-immediately? true}
+          schedule-options-simple {:memo {"source" "types-test"}
+                                   :search-attributes {"foo" "bar"}
+                                   :trigger-immediately? true}
           schedule (s/schedule-> {:action action
                                   :policy policy
                                   :spec spec
-                                  :state state})]
+                                  :state state})
+          built-schedule-options-typed (s/schedule-options-> schedule-options-typed)
+          built-schedule-options-simple (s/schedule-options-> schedule-options-simple)]
       (is (some? (s/schedule-action-start-workflow-> action)))
       (is (some? (s/schedule-spec-> spec)))
       (is (some? (s/schedule-policy-> policy)))
@@ -151,7 +165,12 @@
       (is (= ["0 * * * * "] (-> schedule .getSpec .getCronExpressions)))
       (is (-> schedule .getPolicy .isPauseOnFailure))
       (is (= "note" (-> schedule .getState .getNote)))
-      (is (-> schedule .getState .isPaused)))))
+      (is (-> schedule .getState .isPaused))
+      (is (= "types-test" (-> built-schedule-options-typed .getMemo (get "source"))))
+      (is (= {"foo" {:type :keyword :value "bar"}}
+             (-> built-schedule-options-typed .getTypedSearchAttributes sa/search-attributes->map)))
+      (is (= {"foo" {:type :text :value "bar"}}
+             (-> built-schedule-options-simple .getTypedSearchAttributes sa/search-attributes->map))))))
 
 (deftest child-workflow-options
   (testing "Verify that a `ChildWorkflowOptions` instance can be built properly"
