@@ -25,26 +25,32 @@
 
    Arguments:
 
-   - `client`: [ScheduleClient]https://www.javadoc.io/doc/io.temporal/temporal-sdk/latest/io/temporal/client/schedules/ScheduleClient.html
+   - `client`: [ScheduleClient](https://www.javadoc.io/doc/io.temporal/temporal-sdk/latest/io/temporal/client/schedules/ScheduleClient.html)
    - `schedule-id`: The string name of the schedule in Temporal, keeping it consistent with workflow id is a good idea
    - `options`: A map containing the `:schedule`, `:state`, `:policy`, `:spec`, and `:action` option maps for the `Schedule`
 
+   `:search-attributes` is supported in both `:schedule` and `:action :options`.
+   Both simple and typed formats are accepted; see [Search attribute input formats](/doc/workflows.md#search-attribute-input-formats).
+
    ```clojure
    (defworkflow my-workflow
-     [ctx args]
+     [args]
      ...)
 
-   (let [client (create-client {:target \"localhost:8080\"})]
-   (create
+   (let [client (create-client {:target \"localhost:7233\"})]
+     (schedule
       client
-      \"my-workflow\"
-      {:schedule {:trigger-immediately? false}
+      \"my-workflow-schedule\"
+      {:schedule {:trigger-immediately? false
+                  :search-attributes {\"ScheduleType\" {:type :keyword :value \"hourly\"}}}
        :state {:paused? false}
        :policy {:pause-on-failure? true}
-       :spec {:crons [\"0 * * * *\"]}
+       :spec {:cron-expressions [\"0 * * * *\"]}
        :action {:workflow-type my-workflow
                 :arguments {:value 1}
-                :options {:workflow-id \"my-workflow\"}}}))
+                :options {:workflow-id \"my-workflow\"
+                          :task-queue \"my-task-queue\"
+                          :search-attributes {\"WorkflowType\" {:type :keyword :value \"report\"}}}}}))
    ```"
   [^ScheduleClient client schedule-id options]
   (let [schedule (s/schedule-> options)
@@ -57,7 +63,7 @@
 
     ```clojure
 
-   (let [client (create-client {:target \"localhost:8080\"})]
+   (let [client (create-client {:target \"localhost:7233\"})]
       (unschedule client \"my-schedule\")
     ```"
   [^ScheduleClient client schedule-id]
@@ -71,7 +77,7 @@
 
    ```clojure
 
-   (let [client (create-client {:target \"localhost:8080\"})]
+   (let [client (create-client {:target \"localhost:7233\"})]
       (describe client \"my-schedule\")
     ```"
   [^ScheduleClient client schedule-id]
@@ -84,7 +90,7 @@
 
    ```clojure
 
-   (let [client (create-client {:target \"localhost:8080\"})]
+   (let [client (create-client {:target \"localhost:7233\"})]
       (pause client \"my-schedule\")
     ```"
   [^ScheduleClient client schedule-id]
@@ -98,7 +104,7 @@
 
    ```clojure
 
-   (let [client (create-client {:target \"localhost:8080\"})]
+   (let [client (create-client {:target \"localhost:7233\"})]
       (unpause client \"my-schedule\")
     ```"
   [^ScheduleClient client schedule-id]
@@ -108,11 +114,11 @@
       (.unpause)))
 
 (defn execute
-  "Runs a Temporal `Schedule's` workflow execution immediately via a schedule-id
+  "Runs a Temporal Schedule workflow execution immediately via a schedule-id
 
    ```clojure
 
-   (let [client (create-client {:target \"localhost:8080\"})]
+   (let [client (create-client {:target \"localhost:7233\"})]
       (execute client \"my-schedule\" :skip)
     ```"
   [^ScheduleClient client schedule-id overlap-policy]
@@ -123,7 +129,7 @@
 
 (defn reschedule
   "Updates the current Temporal `Schedule` via a schedule-id.
-   Uses the same options as create asside from `:schedule`
+   Uses the same options as [[schedule]] except `:schedule`.
 
    The `ScheduleHandle` takes a unary function object
    of the signature:
@@ -132,8 +138,8 @@
 
    ```clojure
 
-   (let [client (create-client {:target \"localhost:8080\"})]
-      (reschedule client \"my-schedule\" {:spec {:crons [\"1 * * * *\"]}})
+   (let [client (create-client {:target \"localhost:7233\"})]
+      (reschedule client \"my-schedule\" {:spec {:cron-expressions [\"1 * * * *\"]}})
    ```"
   [^ScheduleClient client schedule-id options]
   (log/tracef "update schedule:" schedule-id)

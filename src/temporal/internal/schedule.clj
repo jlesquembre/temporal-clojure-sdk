@@ -1,5 +1,6 @@
 (ns ^:no-doc temporal.internal.schedule
-  (:require [temporal.internal.utils :as u]
+  (:require [temporal.internal.search-attributes :as sa]
+            [temporal.internal.utils :as u]
             [temporal.internal.workflow :as w])
   (:import [io.temporal.api.enums.v1 ScheduleOverlapPolicy]
            [io.temporal.client.schedules
@@ -77,6 +78,7 @@
 
 (def schedule-options-spec
   {:memo                  #(.setMemo ^ScheduleOptions$Builder %1 %2)
+   :search-attributes     #(.setTypedSearchAttributes ^ScheduleOptions$Builder %1 (sa/search-attributes-> %2))
    :trigger-immediately?  #(.setTriggerImmediately ^ScheduleOptions$Builder %1 %2)})
 
 (defn schedule-options->

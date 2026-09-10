@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest testing is]]
             [temporal.client.schedule :as schedule]
             [temporal.internal.schedule :as s]
+            [temporal.internal.search-attributes :as sa]
             [temporal.internal.workflow :as w]
             [temporal.test.utils :as t]
             [temporal.workflow :refer [defworkflow]])
@@ -46,7 +47,8 @@
   [& {:keys [action spec policy state schedule]}]
   {:action (merge {:arguments {:name "John Doe" :age 32}
                    :options {:workflow-id workflow-id
-                             :task-queue t/task-queue}
+                             :task-queue t/task-queue
+                             :search-attributes {"foo" {:type :keyword :value "workflow"}}}
                    :workflow-type simple-workflow}
                   action)
    :spec (merge {:cron-expressions ["0 * * * * "]
@@ -64,7 +66,8 @@
                   :limited-action? false}
                  state)
    :schedule (merge {:trigger-immediately? true
-                     :memo "memo"}
+                     :memo {"note" "memo"}
+                     :search-attributes {"foo" {:type :keyword :value "schedule"}}}
                     schedule)})
 
 ;; NOTE: Temporal Schedules are not supported in the Temporal test environment
@@ -79,10 +82,24 @@
       (is (= (-> (get-in @state [:create :schedule]) .getAction .getWorkflowType) (w/get-annotated-name simple-workflow)))
       (is (= (-> (get-in @state [:create :schedule]) .getAction .getWorkflowType) "simple-workflow"))
       (is (= (-> (get-in @state [:create :schedule]) .getAction .getOptions .getWorkflowId) workflow-id))
+      (is (= (-> (get-in @state [:create :schedule])
+                 .getAction
+                 .getOptions
+                 .getTypedSearchAttributes
+                 sa/search-attributes->map
+                 (get "foo")
+                 :value)
+             "workflow"))
       (is (= (-> (get-in @state [:create :schedule]) .getSpec .getCronExpressions) ["0 * * * * "]))
       (is (-> (get-in @state [:create :schedule]) .getPolicy .isPauseOnFailure))
       (is (= (-> (get-in @state [:create :schedule]) .getState .getNote) "note"))
-      (is (-> (get-in @state [:create :schedule]) .getState .isPaused)))))
+      (is (-> (get-in @state [:create :schedule]) .getState .isPaused))
+      (is (= (-> (get-in @state [:create :schedule-options])
+                 .getTypedSearchAttributes
+                 sa/search-attributes->map
+                 (get "foo")
+                 :value)
+             "schedule")))))
 
 (deftest unschedule-scheduled-workflow-test
   (testing "unscheduling a scheduled workflow is successful"

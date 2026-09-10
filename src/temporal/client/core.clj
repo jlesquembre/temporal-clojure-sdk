@@ -78,7 +78,7 @@ Arguments:
 | `:retry-options`               | Retry configuration map                                    |
 | `:cron-schedule`               | Cron expression for scheduled execution                    |
 | `:memo`                        | Arbitrary metadata map                                     |
-| `:search-attributes`           | Indexed attributes for workflow visibility                 |
+| `:search-attributes`           | Indexed attributes for workflow visibility. Supports simple and typed formats; see [Search attribute input formats](/doc/workflows.md#search-attribute-input-formats). |
 | `:start-delay`                 | Delay before starting the workflow (Duration)               |
 | `:priority`                    | Priority/fairness options (see [[temporal.common/priority-options]]) |
 | `:static-summary`              | Single-line fixed summary shown in UI/CLI (Temporal Markdown); cannot be updated after start |
