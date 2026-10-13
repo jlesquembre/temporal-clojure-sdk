@@ -111,11 +111,13 @@ Workflow ID Conflict Policies (`:workflow-id-conflict-policy`):
 
 (defn start
   "
-Starts 'worklow' with 'params'"
-  [{:keys [^WorkflowStub stub ^WorkflowClient client] :as _workflow} params]
-  (log/trace "start:" params "client:" client)
-  (.start stub (u/->objarray params)))
-
+Starts `workflow` with 0 or 1 parameters."
+  ([{:keys [^WorkflowStub stub ^WorkflowClient client] :as _workflow}]
+   (log/trace "start:" :no-args "client:" client)
+   (.start stub (u/->objarray)))
+  ([{:keys [^WorkflowStub stub ^WorkflowClient client] :as _workflow} params]
+   (log/trace "start:" params "client:" client)
+   (.start stub (u/->objarray params))))
 (defn signal-with-start
   "
 Signals 'workflow' with 'signal-params' on signal 'signal-name', starting it if not already running.
@@ -124,8 +126,8 @@ Arguments:
 
 - `workflow`: workflow instance created with [[create-workflow]]
 - `signal-name`: keyword (or coerceable) identifying the signal
-- `signal-params`: data to send with the signal
-- `wf-params`: arguments passed to the workflow if it needs to be started
+- `signal-params`: optional data to send with the signal
+- `wf-params`: optional argument passed to the workflow if it needs to be started
 
 By default, this will fail if the workflow is already running.  To signal an existing workflow instead,
 set `:workflow-id-conflict-policy` to `:use-existing` when calling [[create-workflow]]:
@@ -137,10 +139,15 @@ set `:workflow-id-conflict-policy` to `:use-existing` when calling [[create-work
   (signal-with-start w :my-signal {:data \"value\"} {:initial \"args\"}))
 ```
 "
-  [{:keys [^WorkflowStub stub] :as _workflow} signal-name signal-params wf-params]
-  (log/trace "signal-with-start->" "signal:" signal-name signal-params "workflow-params:" wf-params)
-  (.signalWithStart stub (u/namify signal-name) (u/->objarray signal-params) (u/->objarray wf-params)))
-
+  ([{:keys [^WorkflowStub stub] :as _workflow} signal-name]
+   (log/trace "signal-with-start->" "signal:" signal-name :no-signal-params :no-workflow-params)
+   (.signalWithStart stub (u/namify signal-name) (u/->objarray) (u/->objarray)))
+  ([{:keys [^WorkflowStub stub] :as _workflow} signal-name signal-params]
+   (log/trace "signal-with-start->" "signal:" signal-name signal-params "workflow-params:" :no-args)
+   (.signalWithStart stub (u/namify signal-name) (u/->objarray signal-params) (u/->objarray)))
+  ([{:keys [^WorkflowStub stub] :as _workflow} signal-name signal-params wf-params]
+   (log/trace "signal-with-start->" "signal:" signal-name signal-params "workflow-params:" wf-params)
+   (.signalWithStart stub (u/namify signal-name) (u/->objarray signal-params) (u/->objarray wf-params))))
 (defn >!
   "
 Sends 'params' as a signal 'signal-name' to 'workflow'

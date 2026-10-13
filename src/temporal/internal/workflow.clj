@@ -106,11 +106,13 @@
     (try+
      (let [d (u/resolve-dispatch ::def (u/find-dispatch dispatch workflow-type))
            f (u/resolve-dispatch-fn d)
-           a (u/->args args)
+           a (u/->args-0-or-1 args)
            _ (log/trace workflow-id "calling" f "with args:" a)
            r (if (-> d :type (= :legacy))
-               (f ctx {:args a :signals (s/create-signal-chan)})
-               (f a))]
+               (f ctx {:args (first a) :signals (s/create-signal-chan)})
+               (case (count a)
+                 0 (f)
+                 1 (f (first a))))]
        (log/trace workflow-id "result:" r)
        r)
      (catch DestroyWorkflowThreadError ex

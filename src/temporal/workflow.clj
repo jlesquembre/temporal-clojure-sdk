@@ -203,7 +203,7 @@ if the update request is invalid. Validators must not mutate state or perform bl
 
 (defmacro defworkflow
   "
-Defines a new workflow, similar to defn, expecting a 1-arity parameter list and body.  Should evaluate to something
+Defines a new workflow, similar to defn, expecting a 0-arity or 1-arity parameter list and body.  Should evaluate to something
 serializable, which will become available for [[temporal.client.core/get-result]].
 
 Arguments:
@@ -233,16 +233,26 @@ Arguments:
                  (f# ctx# args#)))
              {::w/def {:name ~sname :fqn ~fqn :type :legacy}
               ::u/var (var ~name)})))
-      (do
-        `(def ~name
-           (with-meta
-             (fn [args#]
-               (log/trace (str ~fqn ": ") args#)
-               (let [f# (fn ~params* (do ~@body))]
-                 (f# args#)))
-             {::w/def {:name ~sname :fqn ~fqn}
-              ::u/var (var ~name)}))))))
-
+      (case (count params*)
+        0 `(def ~name
+             (with-meta
+               (fn []
+                 (log/trace (str ~fqn ": " :no-args))
+                 (let [f# (fn ~params* (do ~@body))]
+                   (f#)))
+               {::w/def {:name ~sname :fqn ~fqn}
+                ::u/var (var ~name)}))
+        1 `(def ~name
+             (with-meta
+               (fn [args#]
+                 (log/trace (str ~fqn ": ") args#)
+                 (let [f# (fn ~params* (do ~@body))]
+                   (f# args#)))
+               {::w/def {:name ~sname :fqn ~fqn}
+                ::u/var (var ~name)}))
+        (throw (ex-info "defworkflow expects [], [arg], or legacy [ctx args] parameter forms"
+                        {:workflow name
+                         :params params*}))))))
 (defn invoke
   "
 Invokes a 'child workflow' with 'params' from within a workflow context.

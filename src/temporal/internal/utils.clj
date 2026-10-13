@@ -138,16 +138,31 @@
       (string/replace #"-" "_")
       (str "." sym)))
 
+; (def ^:private ^objects empty-object-array (object-array 0))
+
 (defn ->objarray
-  "Serializes x to an array of Objects, suitable for many Temporal APIs"
-  ^"[Ljava.lang.Object;" [x]
-  (into-array object-type [x]))
+  "Serializes 0 or 1 arguments to an array of Objects, suitable for many Temporal APIs"
+  (^objects []
+   (object-array 0))
+  (^objects [x]
+   (object-array [x])))
+   ; (into-array object-type [x])))
 
 (defn ->args
   "Decodes EncodedValues to native clojure data type.  Assumes all data is in the first element"
   [^EncodedValues args]
   (log/trace "args:" args)
   (.get args (int 0) object-type))
+
+(defn ->args-0-or-1
+  "Decodes EncodedValues as either no args ([]) or one arg ([x])."
+  [^EncodedValues args]
+  (let [n (.getSize args)]
+    (case n
+      0 []
+      1 [(.get args (int 0) object-type)]
+      (throw (ex-info "Expected 0 or 1 Temporal arguments"
+                      {:count n})))))
 
 (def ^String namify
   "Converts strings or keywords to strings, preserving fully qualified keywords when applicable"
